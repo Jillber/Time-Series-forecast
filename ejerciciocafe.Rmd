@@ -1,0 +1,144 @@
+---
+title: "Metodología con datos cafe"
+author: "Jillber García"
+date: "9/4/2020"
+output: html_document
+---
+
+```{r}
+#Instalar paquetes para series de tiempo
+library(readxl)
+library(TSA)
+library(tseries)
+library(corrgram)
+library(forecast)
+```
+```{r}
+library(readxl)
+precio_cafe <- read_excel("ejerciciocafe.xlsx")
+View(ejerciciocafe)
+attach(precio_cafe)
+
+y<-ts(`Precio Café`,frequency = 12, start=c(1993,01))
+
+fechas=seq(as.Date("2001/1/1"), length.out = length(y), by="months")
+
+```
+
+```{r}
+#Gráfica de la serie
+ts.plot(`y`, main="Precio del café")
+
+#Transformar la serie
+diferencia<-diff(y)
+variacion<-diff(y)/lag(y,-1)
+ts.plot(`diferencia`, main="Diferencia")
+ts.plot(`variacion`, main="Variación porcentual")
+
+
+```
+```{r}
+#Prueba de estacionariedad
+adf.test(y)
+adf.test(diferencia)
+adf.test(variacion)
+
+```
+
+```{r}
+#Funciones de autocorrelación
+par(mfrow=c(1,1))
+acf(y,lag.max = 36)
+pacf(y,lag.max = 36)
+acf(diferencia,lag.max = 36)
+pacf(diferencia,lag.max = 36)
+acf(variacion,lag.max = 36)
+pacf(variacion,lag.max = 36)
+
+
+```
+```{r}
+#Estimar el modelo inicial
+modelo<-arma(diferencia,include.intercept = FALSE,lag=list(ar=c(32),
+              ma=c(4)))
+summary(modelo)
+```
+
+```{r}
+#Generar los residuales del modelo ajustado
+error<-residuals(modelo)
+e1<-error[!is.na(error)]
+
+```
+
+
+```{r}
+### Normalidad
+par(mfrow=c(1,2))
+qqnorm(scale(e1))
+qqline(scale(e1),col="blue")
+
+histograma<-function(modelo, nbreaks=12) {
+  hist(e1, breaks=nbreaks, freq=FALSE, main="Histograma de residuales")
+  rug(jitter(e1), col="red")
+  curve(dnorm(x,mean=mean(e1), sd=sd(e1)), add=TRUE, col="blue", lwd=2)
+  lines(density(e1)$x, density(e1)$y, col="yellow", lwd=2, lty=2)
+}
+par(mfrow=c(1,1))
+histograma(modelo)
+
+jarque.bera.test(e1)
+ks.test(e1,"pnorm")
+
+```
+
+```{r}
+### No autocorrelación
+plot(scale(e1),type="l",main="Residuales")
+par(mfrow=c(1,2))
+acf(e1)
+pacf(e1)
+
+
+acf_e1 <- acf(e1, plot=FALSE, lag.max=26)$acf
+pacf_e1 <- pacf(e1, plot=FALSE, lag.max=26)$acf
+
+Q_stats <- c()
+Q_pvals <- c()
+for (i in 1:26) {
+  Q = Box.test(e1, lag=i)
+  Q_stats[[i]] <- Q$statistic
+  Q_pvals[[i]] <- Q$p.value
+}
+corrgram <- cbind(LAG=seq(1,26), ACF=acf_e1, PACF=pacf_e1, Q=Q_stats, "Prob>Q"=Q_pvals)
+corrgram
+
+```
+
+
+```{r}
+###Homocedasticidad
+e1_cuad=(e1-mean(e1))^2
+
+par(mfrow=c(1,2))
+acf(e1_cuad)
+pacf(e1_cuad)
+
+acf_e1c <- acf(e1_cuad, plot=FALSE, lag.max=12)$acf
+pacf_e1c <- pacf(e1_cuad, plot=FALSE, lag.max=12)$acf
+
+Q_stats <- c()
+Q_pvals <- c()
+for (i in 1:12) {
+  Q = Box.test(e1_cuad, lag=i)
+  Q_stats[[i]] <- Q$statistic
+  Q_pvals[[i]] <- Q$p.value
+}
+corrgram <- cbind(LAG=seq(1,12), ACF=acf_e1c, PACF=pacf_e1c, Q=Q_stats, "Prob>Q"=Q_pvals)
+corrgram
+
+```
+```{r}
+f1<-forecast(modelo)
+plot(forecast(modelo))
+```
