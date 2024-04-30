@@ -1,0 +1,125 @@
+---
+title: "Pron?stico"
+output: html_document
+---
+
+```{r}
+library(readxl)
+Desempleo <- read_excel("Primer corte econometría financiera.xlsx", 
+    sheet = "Datos")
+View(Desempleo)# ver la base de datos
+attach(Desempleo)
+des<-ts(`Tasa de desempleo (%)`,frequency = 12, start=c(2001,01), end=c(2019,11))
+#con la funci?n ts definimos que los datos son una serie de tiempo
+fechas=seq(as.Date("2001/1/1"), length.out = 227, by="months")
+#con la funci?n as.date definimos que se trata de fechas
+ts.plot(`des`, main="Tasa de desempleo (%)")
+#con la funci?n ts.plot hacemos un gr?fico simple de una variable que es una serie de tiempo
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#Instalar paquetes
+install.packages("smooth")
+install.packages("tseries")
+install.packages("forecast")
+install.packages("zoo")
+install.packages("Rcpp_precious_remove")
+library(smooth)
+library(tseries)
+library(forecast)
+library(zoo)
+library(Rcpp_precious_remove)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#Modelos polin?micos
+T=length(des)#numero de observaciones 
+t = seq(1:T) #secuencia desde 1 hasta el n?mero de observaciones
+#creo las variables x
+t2 = t^2 
+t3 = t^3
+t4 = t^4
+t5 = t^5
+t6 = t^6
+# primera regresi?n de desempleo con tiempo
+mlineal=lm(des~t)#la funci?n lm es para realizar una regresion, las y van separadas de las x con ~
+summary(mlineal)# la funci?n summary me da detalles de la regresi?n
+f1<-predict.lm(mlineal, h=3)#predict.lm es para sacar el pronostico 
+# segunda regresi?n de desempleo con tiempo y x^2
+mcuad=lm(des~t+t2)
+summary(mcuad)
+f2<-predict.lm(mcuad, h=3)
+
+mcub=lm(des~t+t2+t3)
+summary(mcub)
+f3<-predict.lm(mcub, h=3)
+
+mseis<-lm(des~t+t2+t3+t4+t5+t6)
+summary(mseis)
+f6<-predict.lm(mseis,h=3)
+# la profe cambia el nivel de significancia en los parciales
+```
+
+```{r}
+#Gr?fico sencillo
+plot(fechas,des,type="l",col="blue")
+lines(fechas,f1,col="green")
+lines(fechas,f2,col="red")
+lines(fechas,f6,col="purple")
+
+```
+
+```{r}
+#Medidas de error de pron?stico
+rmse1<-sqrt(MSE(des,f1))
+rmse2<-sqrt(MSE(des,f2))
+rmse6<-sqrt(MSE(des,f6))
+
+mae1<-MAE(des,f1)
+mae2<-MAE(des,f2)
+mae6<-MAE(des,f6)
+
+mape1<-MAPE(des,f1)
+mape2<-MAPE(des,f2)
+mape6<-MAPE(des,f6)
+rmse1
+rmse2
+rmse6
+mae1
+mae2
+mae6
+mape1
+mape2
+mape6
+```
+
+```{r}
+#Modelos de suavizamiento
+m1<-sma(des,h=3,silent="none")
+summary(m1)
+f4<-forecast(m1)
+plot(forecast(m1))
+
+m2<-ces(des,h=3,seasonality = "s")
+summary(m2)
+f5<-forecast.smooth(m2)
+plot(forecast(m2))
+
+#Medidas de error de pron?stico
+rmse4<-sqrt(MSE(des,f4))
+accuracy(f4)
+accuracy(f5)
+#hacer la serie con nuestros datos
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
