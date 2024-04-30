@@ -1,0 +1,237 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+
+library(readxl)
+Desempleo <- read_excel("Desempleo_des.xlsx")
+View(Desempleo)
+
+
+attach(Desempleo)
+
+y<-ts(`Tasa de desempleo (%)`,frequency = 12, start=c(2001,01))
+y_des<-ts(`Desestacionalizada`,frequency = 12, start=c(2001,01))
+fechas=seq(as.Date("2001/1/1"), length.out = length(y), by="months")
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#Instalar paquetes para series de tiempo
+install.packages("TSA")
+library(TSA)
+install.packages("tseries")
+library(tseries)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+#Gráfica de la serie
+ts.plot(`y`, main="Tasa de desempleo")
+ts.plot(`y_des`, main="Tasa de desempleo desestacionalizada")
+
+#Transformar la serie
+diferencia<-diff(y)
+variacion<-diff(y)/lag(y,-1)
+ts.plot(`diferencia`, main="Diferencia")
+ts.plot(`variacion`, main="Variación porcentual")
+
+dif_des<-diff(y_des)
+var_des<-diff(y_des)/lag(y_des,-1)
+ts.plot(`dif_des`, main="Diferencia des")
+ts.plot(`var_des`, main="Variación porcentual des")
+
+```
+
+
+```{r}
+#Prueba de estacionariedad
+adf.test(y)
+adf.test(diferencia)
+adf.test(variacion)
+adf.test(y_des)
+adf.test(dif_des)
+adf.test(var_des)
+
+```
+
+
+```{r}
+#Funciones de autocorrelación
+par(mfrow=c(1,1))
+acf(y,lag.max = 36)
+pacf(y,lag.max = 36)
+acf(diferencia,lag.max = 36)
+pacf(diferencia,lag.max = 36)
+acf(variacion,lag.max = 36)
+pacf(variacion,lag.max = 36)
+
+par(mfrow=c(3,2))
+acf(y_des,lag.max = 36)
+pacf(y_des,lag.max = 36)
+acf(dif_des,lag.max = 36)
+pacf(dif_des,lag.max = 36)
+acf(var_des,lag.max = 36)
+pacf(var_des,lag.max = 36)
+
+```
+
+
+```{r}
+#Estimar el modelo inicial
+modelo<-arma(diferencia,include.intercept = TRUE,lag=list(ar=c(1,2,3,4,5,10,11,12,13,23,24,25),
+              ma=c(1,2,6,10,12,14,15,18,21,24,26,30,34,36)))
+summary(modelo)
+
+modelo<-arma(diferencia,include.intercept = FALSE,lag=list(ar=c(1,2,12,13),
+              ma=c(12,22)))
+summary(modelo)
+
+# modelo con coeficientes significativos
+modelo<-arma(diferencia,include.intercept = FALSE,lag=list(ar=c(1,2,3,10,11,24,25),
+              ma=c(12)))
+summary(modelo)
+
+modelo<-arma(diferencia,order=c(2,1))
+summary(modelo)
+
+### Modelo con variación de la serie desestacionalizada
+modelo<-arma(var_des,include.intercept = FALSE,lag=list(ar=c(1,2,3,14,25),                                                          ma=c(1,3,11,12,14,15,22,23)))
+summary(modelo)
+
+modelo<-arma(var_des,include.intercept = FALSE,lag=list(ar=c(1,2,3,8,14),                                                          ma=c(8,22)))
+summary(modelo)
+
+modelo<-arma(var_des,order=c(1,2),include.intercept = FALSE)
+summary(modelo)
+
+modelo<-arma(var_des,include.intercept = FALSE,lag=list(ar=c(1,2,3,8,14),                                                     ma=c(8,22)))
+summary(modelo)
+
+
+
+modelo<-arima(y_des,order=c(1,1,2),include.mean = TRUE)
+summary(modelo)
+
+-0.124/sqrt(0.0164)
+-0.523/sqrt(0.0136)
+
+install.packages("forecast")
+library("forecast")
+auto.arima(var_des)
+auto.arima(y)
+
+modelo<-arima(var_des, c(2,0,2))
+summary(modelo)
+
+f1<-forecast(modelo)
+plot(forecast(modelo))
+
+```
+
+
+```{r}
+#Modelo ajustado
+modelo1<-arma(variacion,include.intercept = FALSE,lag=list(ar=c(12,24),
+                                                           ma=c(1)))
+summary(modelo1)
+
+modelo2<-arma(diferencia,include.intercept = FALSE,lag=list(ar=c(16),ma=c(1,8)))
+summary(modelo2)
+
+```
+
+
+```{r}
+#Generar los residuales del modelo ajustado
+error<-residuals(modelo)
+e1<-error[!is.na(error)]
+
+```
+
+
+```{r}
+### Normalidad
+par(mfrow=c(1,2))
+qqnorm(scale(e1))
+qqline(scale(e1),col="blue")
+
+histograma<-function(modelo, nbreaks=12) {
+  hist(e1, breaks=nbreaks, freq=FALSE, main="Histograma de residuales")
+  rug(jitter(e1), col="red")
+  curve(dnorm(x,mean=mean(e1), sd=sd(e1)), add=TRUE, col="blue", lwd=2)
+  lines(density(e1)$x, density(e1)$y, col="yellow", lwd=2, lty=2)
+}
+par(mfrow=c(1,1))
+histograma(modelo)
+
+jarque.bera.test(e1)
+ks.test(e1,"pnorm")
+
+```
+
+
+```{r}
+### No autocorrelación
+plot(scale(e1),type="l",main="Residuales")
+par(mfrow=c(1,2))
+acf(e1)
+pacf(e1)
+
+#install.packages("corrgram")
+library(corrgram)
+
+acf_e1 <- acf(e1, plot=FALSE, lag.max=36)$acf
+pacf_e1 <- pacf(e1, plot=FALSE, lag.max=36)$acf
+
+Q_stats <- c()
+Q_pvals <- c()
+for (i in 1:36) {
+  Q = Box.test(e1, lag=i)
+  Q_stats[[i]] <- Q$statistic
+  Q_pvals[[i]] <- Q$p.value
+}
+corrgram <- cbind(LAG=seq(1,36), ACF=acf_e1, PACF=pacf_e1, Q=Q_stats, "Prob>Q"=Q_pvals)
+corrgram
+
+```
+
+
+```{r}
+###Homocedasticidad
+e1_cuad=(e1-mean(e1))^2
+
+par(mfrow=c(1,2))
+acf(e1_cuad)
+pacf(e1_cuad)
+
+acf_e1c <- acf(e1_cuad, plot=FALSE, lag.max=12)$acf
+pacf_e1c <- pacf(e1_cuad, plot=FALSE, lag.max=12)$acf
+
+Q_stats <- c()
+Q_pvals <- c()
+for (i in 1:12) {
+  Q = Box.test(e1_cuad, lag=i)
+  Q_stats[[i]] <- Q$statistic
+  Q_pvals[[i]] <- Q$p.value
+}
+corrgram <- cbind(LAG=seq(1,12), ACF=acf_e1c, PACF=pacf_e1c, Q=Q_stats, "Prob>Q"=Q_pvals)
+corrgram
+
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
