@@ -1,5 +1,5 @@
 # Time-Series-forecast
-I forecast time series using Excel, R and Phyton. 
+I forecast time series using Excel, Rstudio. 
 Introducción.
 En este documento hago distintos modelos de pronóstico de la tasa de desempleo en Colombia para el periodo entre Enero del 2001
 (2001-01) a Noviembre de 2019 (2019-11). El objetivo es hacer una predicción de la tasa de desempleo para los siguientes
